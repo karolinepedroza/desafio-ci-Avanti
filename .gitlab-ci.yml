@@ -7,7 +7,6 @@ stages:
   - build-lint
   - test
   - release
-  - package
   - deploy
 
 # Job para verificar formatação e erros comuns no código Go
@@ -35,25 +34,15 @@ run-tests:
     - apk add --no-cache build-base gcc
     - CGO_ENABLED=1 go test -v ./... # O -v mostra o resultado de todos os testes
 
-release-job:
-  stage: release
-  image: node:18 # Imagem com Node.js e npm para rodar o semantic-release
-  before_script:
-    - npm install -g semantic-release @semantic-release/gitlab @semantic-release/git conventional-changelog-conventionalcommits
-  script:
-    - semantic-release
-  only:
-    - main
-
 # Job para construir a imagem Docker e enviá-la para o Docker Hub
 build-and-push-image:
-  stage: package
+  stage: release
   variables:
     DOCKER_USER: taotreinatec
     DOCKER_PASS: $DOCKER_PASS
     DOCKER_IMAGE_NAME: $DOCKER_USER/ms-saudacoes-aleatorias
     DOCKER_REGISTRY: registry.hub.docker.com
-    DOCKER_IMAGE_TAG: $CI_COMMIT_TAG
+    DOCKER_IMAGE_TAG: 1.0.$CI_PIPELINE_IID 
   tags:
     - gitlab-org-docker
   # Usa a imagem oficial do Docker para executar comandos docker
@@ -68,7 +57,9 @@ build-and-push-image:
     - docker build -t "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" .
     - echo "Enviando a imagem para o Docker Hub..."
     # Envia a imagem construída para o repositório do Docker Hub.
+    - docker tag "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" "$DOCKER_IMAGE_NAME:latest"
     - docker push "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG"
+    - docker push "$DOCKER_IMAGE_NAME:latest"
   only:
     - main
 
