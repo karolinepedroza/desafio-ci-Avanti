@@ -52,6 +52,37 @@ func setupRouter() *gin.Engine {
 	return router
 }
 
+func TestGetRandomGreeting(t *testing.T) {
+	// Configura o ambiente de teste
+	setupTestDB(t)
+	router := setupRouter()
+
+	// Cria a requisição
+	req, _ := http.NewRequest(http.MethodGet, "/api/saudacoes/aleatorio", nil)
+
+	// Cria um ResponseRecorder
+	w := httptest.NewRecorder()
+
+	// Executa a requisição
+	router.ServeHTTP(w, req)
+
+	// Verifica o código de status
+	if w.Code != http.StatusOK {
+		t.Errorf("Esperava o código de status %d, mas obteve %d", http.StatusOK, w.Code)
+	}
+
+	// Verifica o corpo da resposta
+	var response map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
+		t.Fatalf("Falha ao decodificar a resposta JSON: %v", err)
+	}
+
+	// Como só temos uma saudação no banco de teste, a resposta deve ser ela
+	if saudacao, ok := response["saudação"]; !ok || saudacao != "Teste Inicial" {
+		t.Errorf("Esperava a saudação 'Teste Inicial', mas obteve '%s'", saudacao)
+	}
+}
+
 func TestCreateGreeting(t *testing.T) {
 	// Configura o ambiente de teste
 	setupTestDB(t)
@@ -81,36 +112,5 @@ func TestCreateGreeting(t *testing.T) {
 
 	if data, ok := response["data"]; !ok || data.Text != "Olá, Mundo dos Testes!" {
 		t.Errorf("Corpo da resposta inesperado. Obtido: %s", w.Body.String())
-	}
-}
-
-func TestGetRandomGreeting(t *testing.T) {
-	// Configura o ambiente de teste
-	setupTestDB(t)
-	router := setupRouter()
-
-	// Cria a requisição
-	req, _ := http.NewRequest(http.MethodGet, "/api/saudacoes/aleatorio", nil)
-
-	// Cria um ResponseRecorder
-	w := httptest.NewRecorder()
-
-	// Executa a requisição
-	router.ServeHTTP(w, req)
-
-	// Verifica o código de status
-	if w.Code != http.StatusOK {
-		t.Errorf("Esperava o código de status %d, mas obteve %d", http.StatusOK, w.Code)
-	}
-
-	// Verifica o corpo da resposta
-	var response map[string]string
-	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("Falha ao decodificar a resposta JSON: %v", err)
-	}
-
-	// Como só temos uma saudação no banco de teste, a resposta deve ser ela
-	if saudacao, ok := response["saudação"]; !ok || saudacao != "Teste Inicial" {
-		t.Errorf("Esperava a saudação 'Teste Inicial', mas obteve '%s'", saudacao)
 	}
 }

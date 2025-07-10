@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/avanti-dvp/ms-saudacoes-aleatorias/database"
 	"github.com/avanti-dvp/ms-saudacoes-aleatorias/handlers"
 
@@ -41,5 +43,7 @@ func main() {
 
 	// Inicia o servidor na porta 8080
 	// Você pode acessar em http://localhost:8080
-	router.Run(":8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatalf("failed to run server: %v", err)
+	}
 }

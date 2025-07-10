@@ -1,0 +1,87 @@
+# Define a imagem Docker padrão para todos os jobs da pipeline
+default:
+  image: golang:1.24-alpine
+
+# Define os estágios da pipeline. Os jobs são executados na ordem dos estágios.
+stages:
+  - build-lint
+  - test
+  - release
+  - package
+  - deploy
+
+# Job para verificar formatação e erros comuns no código Go
+lint-code:
+  stage: build-lint
+  script:
+    - echo "Linting code..."
+    - go fmt $(go list ./...)
+    - go vet $(go list ./...)
+
+golangci-lint:
+  stage: build-lint
+  # Usa a imagem oficial do golangci-lint.
+  image: golangci/golangci-lint:v2.2-alpine
+  script:
+    - echo "Executando linter no código..."
+    # Executa o linter. O cache é limpo para garantir uma verificação completa.
+    - golangci-lint run --verbose
+
+# Job para executar os testes da aplicação
+run-tests:
+  stage: test
+  script:
+    - echo "Running tests..."
+    - apk add --no-cache build-base gcc
+    - CGO_ENABLED=1 go test -v ./... # O -v mostra o resultado de todos os testes
+
+release-job:
+  stage: release
+  image: node:18 # Imagem com Node.js e npm para rodar o semantic-release
+  before_script:
+    - npm install -g semantic-release @semantic-release/gitlab @semantic-release/git conventional-changelog-conventionalcommits
+  script:
+    - semantic-release
+  only:
+    - main
+
+# Job para construir a imagem Docker e enviá-la para o Docker Hub
+build-and-push-image:
+  stage: package
+  variables:
+    DOCKER_USER: taotreinatec
+    DOCKER_PASS: $DOCKER_PASS
+    DOCKER_IMAGE_NAME: $DOCKER_USER/ms-saudacoes-aleatorias
+    DOCKER_REGISTRY: registry.hub.docker.com
+    DOCKER_IMAGE_TAG: $CI_COMMIT_TAG
+  tags:
+    - gitlab-org-docker
+  # Usa a imagem oficial do Docker para executar comandos docker
+  image: docker:24.0.5
+  services:
+    - docker:24.0.5-dind
+  before_script:
+    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin $DOCKER_REGISTRY
+  script:
+    - echo "Construindo a imagem Docker..."
+    # Constrói a imagem Docker usando o Dockerfile da aplicação.
+    - docker build -t "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" .
+    - echo "Enviando a imagem para o Docker Hub..."
+    # Envia a imagem construída para o repositório do Docker Hub.
+    - docker push "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG"
+  only:
+    - main
+
+# Job para acionar o deploy no Render
+deploy-to-render:
+  stage: deploy
+  # Usa uma imagem leve com cURL para fazer a chamada ao deploy hook
+  image: curlimages/curl:latest
+  script:
+    - echo "Triggering deployment on Render..."
+    # Executa a chamada para o Deploy Hook do Render.
+    # A URL do hook deve ser configurada como uma variável de ambiente no GitLab.
+    - 'curl -X POST "$RENDER_DEPLOY_HOOK_URL"'
+  # Este job só deve ser executado na branch 'main'
+  only:
+    - main
