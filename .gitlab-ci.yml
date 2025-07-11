@@ -19,6 +19,7 @@ variables:
   RENDER_API_KEY: $RENDER_API_KEY
   SERVICE_NAME: saudacoes-aleatorias
   COOLIFY_TOKEN: $COOLIFY_TOKEN
+  NOME_ALUNO: "Thiago Augusto Ozores"
 
 # Job para verificar formatação e erros comuns no código Go
 lint-code:
@@ -110,6 +111,7 @@ deploy-to-staging:
     TF_VAR_docker_image_name: $DOCKER_IMAGE_NAME
     TF_VAR_docker_image_tag: $DOCKER_IMAGE_TAG
     TF_VAR_coolify_token: $COOLIFY_TOKEN
+    TF_VAR_nome_aluno: $NOME_ALUNO
   before_script:
     - cd infra
     - terraform init

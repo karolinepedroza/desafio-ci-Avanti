@@ -17,3 +17,9 @@ variable "coolify_token" {
   type    = string
   default = ""
 }
+
+variable "nome_aluno" {
+  type    = string
+  default = ""
+}
+

@@ -1,6 +1,11 @@
-resource "coolify_service" "example" {
-  name        = "teste"
-  description = "Managed by Terraform"
+resource "random_string" "random" {
+  length           = 8
+  special          = false
+}
+
+resource "coolify_service" "saudacoes" {
+  name        = random_string.random.result
+  description = var.nome_aluno
 
   server_uuid      = "f88kssk8kkww0wgcggocsc04"
   project_uuid     = "bco0k0gkw4o8w4w4gwwogk8o"
@@ -13,6 +18,8 @@ resource "coolify_service" "example" {
 services:
   saudacoes-aleatorias:
     image: "${var.docker_image_name}:${var.docker_image_tag}"
+    ports:
+      - "8080:8080"
 EOF
 
 }
