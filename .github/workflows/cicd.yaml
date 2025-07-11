@@ -10,7 +10,7 @@ on:
 # Variáveis de ambiente globais, disponíveis para todos os jobs
 env:
   DOCKER_USER: taotreinatec
-  DOCKER_IMAGE_NAME: ${{ vars.DOCKER_USER || 'taotreinatec' }}/ms-saudacoes-aleatorias
+  DOCKER_IMAGE_NAME: taotreinatec/ms-saudacoes-aleatorias
   DOCKER_IMAGE_TAG: 1.0.${{ github.run_number }}
   NOME_ALUNO: "Thiago Augusto Ozores"
 
