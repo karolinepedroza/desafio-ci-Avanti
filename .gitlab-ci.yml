@@ -9,6 +9,16 @@ stages:
   - release
   - deploy
 
+variables:
+  DOCKER_USER: taotreinatec
+  DOCKER_PASS: $DOCKER_PASS
+  DOCKER_IMAGE_NAME: $DOCKER_USER/ms-saudacoes-aleatorias
+  DOCKER_REGISTRY: registry.hub.docker.com
+  DOCKER_IMAGE_TAG: 1.0.$CI_PIPELINE_IID
+  RENDER_OWNER_ID: $RENDER_OWNER_ID
+  RENDER_API_KEY: $RENDER_API_KEY
+  SERVICE_NAME: saudacoes-aleatorias
+
 # Job para verificar formatação e erros comuns no código Go
 lint-code:
   stage: build-lint
@@ -26,23 +36,21 @@ golangci-lint:
     # Executa o linter. O cache é limpo para garantir uma verificação completa.
     - golangci-lint run --verbose
 
-# Job para executar os testes da aplicação
-run-tests:
+run-test-report:
   stage: test
   script:
-    - echo "Running tests..."
+    - echo "Rodando testes e gerando report..."
     - apk add --no-cache build-base gcc
-    - CGO_ENABLED=1 go test -v ./... # O -v mostra o resultado de todos os testes
+    - go install gotest.tools/gotestsum@latest
+    - CGO_ENABLED=1 gotestsum --junitfile report.xml --format testname
+  artifacts:
+    when: always
+    reports:
+      junit: report.xml
 
 # Job para construir a imagem Docker e enviá-la para o Docker Hub
 build-and-push-image:
   stage: release
-  variables:
-    DOCKER_USER: taotreinatec
-    DOCKER_PASS: $DOCKER_PASS
-    DOCKER_IMAGE_NAME: $DOCKER_USER/ms-saudacoes-aleatorias
-    DOCKER_REGISTRY: registry.hub.docker.com
-    DOCKER_IMAGE_TAG: 1.0.$CI_PIPELINE_IID 
   tags:
     - gitlab-org-docker
   # Usa a imagem oficial do Docker para executar comandos docker
@@ -50,7 +58,7 @@ build-and-push-image:
   services:
     - docker:24.0.5-dind
   before_script:
-    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin $DOCKER_REGISTRY
+    - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
   script:
     - echo "Construindo a imagem Docker..."
     # Constrói a imagem Docker usando o Dockerfile da aplicação.
@@ -64,15 +72,24 @@ build-and-push-image:
     - main
 
 # Job para acionar o deploy no Render
-deploy-to-render:
+deploy-to-staging:
   stage: deploy
-  # Usa uma imagem leve com cURL para fazer a chamada ao deploy hook
-  image: curlimages/curl:latest
+  variables:
+    TF_VAR_render_owner_id: $RENDER_OWNER_ID
+    TF_VAR_render_api_key: $RENDER_API_KEY
+    TF_VAR_docker_image_url: docker.io/$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG
+    TF_VAR_service_name: $SERVICE_NAME
+  image:
+    name: hashicorp/terraform:latest
+    entrypoint:
+      - "/usr/bin/env"
+      - "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  before_script:
+    - cd infra
+    - terraform init
+    - terraform validate
   script:
-    - echo "Triggering deployment on Render..."
-    # Executa a chamada para o Deploy Hook do Render.
-    # A URL do hook deve ser configurada como uma variável de ambiente no GitLab.
-    - 'curl -X POST "$RENDER_DEPLOY_HOOK_URL"'
-  # Este job só deve ser executado na branch 'main'
+    - echo "Fazendo deploy no Render..."
+    - terraform apply -auto-approve
   only:
     - main
