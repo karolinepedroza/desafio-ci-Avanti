@@ -84,8 +84,11 @@ build-and-push-image:
 # Job para acionar o deploy no Render
 deploy-to-staging:
   stage: deploy
-  # Usa uma imagem mínima que já contém o curl
-  image: hashicorp/terraform:latest
+  image:
+    name: hashicorp/terraform:latest
+    entrypoint:
+      - '/usr/bin/env'
+      - 'PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
   variables:
     TF_VAR_docker_image_name: $DOCKER_IMAGE_NAME
     TF_VAR_docker_image_tag: $DOCKER_IMAGE_TAG
