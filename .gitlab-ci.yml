@@ -62,22 +62,42 @@ run-tests:
 build-and-push-image:
   stage: release
   tags:
-    - gitlab-org-docker
-  # Usa a imagem oficial do Docker para executar comandos docker
-  image: docker:24.0.5
+    - gitlab-org-docker # Certifique-se que este runner suporta modo privilegiado
+  # É recomendado usar uma imagem mais recente, se possível, para ter as últimas versões do buildx
+  image: docker:25.0
   services:
-    - docker:24.0.5-dind
+    - name: docker:25.0-dind
+      command: ["--experimental"] # Necessário para buildx em algumas configurações
+  variables:
+    # Habilita o driver overlay2 para o dind, geralmente mais estável
+    DOCKER_DRIVER: overlay2
+    # Desativa o TLS, pois estamos nos conectando ao dind no mesmo host
+    DOCKER_TLS_CERTDIR: ""
+    # Define as plataformas alvo
+    PLATFORMS: "linux/amd64,linux/arm64"
   before_script:
+    # 1. Login no Docker Hub
     - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+    
+    # 2. Habilita a emulação de outras arquiteturas via QEMU
+    # O buildx usará o QEMU para construir a imagem ARM em um runner AMD64
+    - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+    
+    # 3. Cria e utiliza um novo builder buildx
+    # Isso cria uma instância de builder que pode lidar com múltiplas plataformas
+    - docker buildx create --use --name multi-platform-builder
+    - docker buildx inspect --bootstrap
+
   script:
-    - echo "Construindo a imagem Docker..."
-    # Constrói a imagem Docker usando o Dockerfile da aplicação.
-    - docker build -t "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" .
-    - echo "Enviando a imagem para o Docker Hub..."
-    # Envia a imagem construída para o repositório do Docker Hub.
-    - docker tag "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" "$DOCKER_IMAGE_NAME:latest"
-    - docker push "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG"
-    - docker push "$DOCKER_IMAGE_NAME:latest"
+    - echo "Construindo e enviando a imagem multi-plataforma..."
+    # 4. Constrói e envia a imagem para todas as plataformas de uma só vez
+    # O --push é crucial: ele envia o resultado diretamente para o registry
+    # O buildx cria um "manifest list" no Docker Hub que aponta para as imagens de cada arquitetura
+    - docker buildx build --platform "$PLATFORMS" \
+        --tag "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" \
+        --tag "$DOCKER_IMAGE_NAME:latest" \
+        --push .
+
   only:
     - main
 
