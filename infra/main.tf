@@ -1,10 +1,8 @@
-resource "random_string" "random" {
-  length           = 8
-  special          = false
+resource "random_pet" "random" {
 }
 
 resource "coolify_service" "saudacoes" {
-  name        = random_string.random.result
+  name        = random_pet.random.result
   description = var.nome_aluno
 
   server_uuid      = "f88kssk8kkww0wgcggocsc04"

@@ -118,5 +118,19 @@ deploy-to-staging:
     - terraform validate
   script:
     - terraform apply -auto-approve
+    - echo "UUID=$(terraform output -raw uuid)" >> build.env
+  artifacts:
+    reports:
+      dotenv: build.env
   only:
     - main
+
+start-app:
+  stage: deploy
+  image: curlimages/curl
+  script:
+    - export APP_UUID=$(cat build.env | grep UUID | cut -d= -f2)
+    - curl "https://coolify.tao.tec.br/api/v1/applications/$APP_UUID/start?force=true&instant_deploy=true" --header "Authorization: Bearer $COOLIFY_TOKEN"
+  only:
+    - main
+  
