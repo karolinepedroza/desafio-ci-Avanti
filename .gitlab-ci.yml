@@ -36,7 +36,7 @@ golangci-lint:
     # Executa o linter. O cache é limpo para garantir uma verificação completa.
     - golangci-lint run --verbose
 
-run-test-report:
+run-tests:
   stage: test
   script:
     - echo "Rodando testes e gerando report..."
