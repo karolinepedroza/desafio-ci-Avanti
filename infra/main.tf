@@ -1,14 +1,18 @@
-resource "render_web_service" "saudacoes_aleatorias" {
-  name = var.service_name
+resource "coolify_service" "example" {
+  name        = "teste"
+  description = "Managed by Terraform"
 
-  runtime_source = {
-    image = {
-      image_url = var.docker_image_url
-      tag       = var.docker_image_tag
-    }
-  }
+  server_uuid      = "f88kssk8kkww0wgcggocsc04"
+  project_uuid     = "bco0k0gkw4o8w4w4gwwogk8o"
+  environment_name = var.environment
+  destination_uuid = "qwgww0s04488s0k0ssoggw8s"
 
-  plan          = "hobby"
-  region        = "oregon"
-  num_instances = 1
+  instant_deploy = true
+
+  compose = <<EOF
+services:
+  saudacoes-aleatorias:
+    image: "${var.docker_image_name}:${var.docker_image_tag}"
+EOF
+
 }
