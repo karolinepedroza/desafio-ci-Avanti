@@ -18,6 +18,7 @@ variables:
   RENDER_OWNER_ID: $RENDER_OWNER_ID
   RENDER_API_KEY: $RENDER_API_KEY
   SERVICE_NAME: saudacoes-aleatorias
+  COOLIFY_TOKEN: $COOLIFY_TOKEN
 
 # Job para verificar formatação e erros comuns no código Go
 lint-code:
@@ -35,6 +36,9 @@ golangci-lint:
     - echo "Executando linter no código..."
     # Executa o linter. O cache é limpo para garantir uma verificação completa.
     - golangci-lint run --verbose
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: never
 
 run-tests:
   stage: test
@@ -47,6 +51,9 @@ run-tests:
     when: always
     reports:
       junit: report.xml
+  rules:
+    - if: $CI_COMMIT_BRANCH != "main"
+      when: never
 
 # Job para construir a imagem Docker e enviá-la para o Docker Hub
 build-and-push-image:
@@ -72,21 +79,19 @@ build-and-push-image:
     - main
 
 # Job para acionar o deploy no Render
-deploy-to-render:
+deploy-to-staging:
   stage: deploy
   # Usa uma imagem mínima que já contém o curl
-  image: curlimages/curl:latest
+  image: hashicorp/terraform:latest
+  variables:
+    TF_VAR_docker_image_name: $DOCKER_IMAGE_NAME
+    TF_VAR_docker_image_tag: $DOCKER_IMAGE_TAG
+  before_script:
+    - terraform init
+    - terraform validate
   script:
-    - echo "🚀 Acionando deploy no Render.com..."
-    # A URL do Deploy Hook do Render tem o formato:
-    # https://api.render.com/v1/services/{service_id}/deploys
-    # O service_id é composto por 'srv-' + RENDER_OWNER_ID + '-' + SERVICE_NAME + '-{hash}'
-    # Mas a API do Render permite usar a URL abaixo com o seu API Key.
-    - >
-      curl -X POST \
-      --header "Authorization: Bearer $RENDER_API_KEY" \
-      --header "Content-Type: application/json" \
-      --header "Accept: application/json" \
-      "https://api.render.com/v1/services?name=$SERVICE_NAME"
+    - export COOLIFY_TOKEN=$COOLIFY_TOKEN
+    - echo "🚀 Acionando deploy no Coolify..."
+    - terraform apply -auto-approve
   only:
     - main
