@@ -140,11 +140,12 @@ jobs:
     outputs:
       uuid: ${{ steps.apply.outputs.uuid }}
     env:
-      # Mapeia secrets do GitHub para variáveis de ambiente do Terraform
-      TF_VAR_docker_image_name: ${{ env.DOCKER_IMAGE_NAME }}
-      TF_VAR_docker_image_tag: ${{ env.DOCKER_IMAGE_TAG }}
+      # CORREÇÃO APLICADA AQUI:
+      # Os valores são definidos diretamente para evitar o erro de escopo.
+      TF_VAR_docker_image_name: 'taotreinatec/ms-saudacoes-aleatorias'
+      TF_VAR_docker_image_tag: '1.0.${{ github.run_number }}'
       TF_VAR_coolify_token: ${{ secrets.COOLIFY_TOKEN }}
-      TF_VAR_nome_aluno: ${{ env.NOME_ALUNO }}
+      TF_VAR_nome_aluno: 'Thiago Augusto Ozores'
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
