@@ -76,6 +76,7 @@ build-and-push-image:
     DOCKER_TLS_CERTDIR: ""
     # Define as plataformas alvo
     PLATFORMS: "linux/amd64,linux/arm64"
+    CACHE_DIR: ".buildx-cache"
   before_script:
     # 1. Login no Docker Hub
     - echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
@@ -91,15 +92,12 @@ build-and-push-image:
 
   script:
     - echo "Construindo e enviando a imagem multi-plataforma..."
-    # 4. Constrói e envia a imagem para todas as plataformas de uma só vez
-    # O --push é crucial: ele envia o resultado diretamente para o registry
-    # O buildx cria um "manifest list" no Docker Hub que aponta para as imagens de cada arquitetura
-    - docker buildx build --platform "$PLATFORMS" --tag "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" --tag "$DOCKER_IMAGE_NAME:latest" --push .
+    - mkdir -p "$CACHE_DIR"
+    - docker buildx build --platform "$PLATFORMS" --cache-from "type=local,src=$CACHE_DIR" --cache-to "type=local,dest=$CACHE_DIR,mode=max" --tag "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" --tag "$DOCKER_IMAGE_NAME:latest" --push .
 
   only:
     - main
 
-# Job para acionar o deploy no Render
 deploy-to-staging:
   stage: deploy
   image:
@@ -128,6 +126,8 @@ deploy-to-staging:
 start-app:
   stage: deploy
   image: curlimages/curl
+  dependencies:
+    - deploy-to-staging
   script:
     - export APP_UUID=$(cat build.env | grep UUID | cut -d= -f2)
     - 'curl "https://coolify.tao.tec.br/api/v1/applications/$APP_UUID/start?force=true&instant_deploy=true" --header "Authorization: Bearer $COOLIFY_TOKEN"'
