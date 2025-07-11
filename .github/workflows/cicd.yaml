@@ -1,0 +1,183 @@
+# Nome do Workflow
+name: CI/CD Pipeline
+
+# Gatilhos (Triggers) - Equivalente ao 'only' e 'rules' do GitLab
+on:
+  push:
+    branches:
+      - '**' # Dispara para todas as branches
+
+# Variáveis de ambiente globais, disponíveis para todos os jobs
+env:
+  DOCKER_USER: taotreinatec
+  DOCKER_IMAGE_NAME: ${{ vars.DOCKER_USER || 'taotreinatec' }}/ms-saudacoes-aleatorias
+  DOCKER_IMAGE_TAG: 1.0.${{ github.run_number }}
+  NOME_ALUNO: "Thiago Augusto Ozores"
+
+jobs:
+  # --- Estágio: build-lint ---
+  # Jobs para rodar em branches que NÃO são a 'main'
+
+  lint-code:
+    name: "Lint Code (fmt & vet)"
+    # Condição para executar o job, equivalente ao 'rules'
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # Especifique a versão do Go
+
+      - name: "Executar go fmt e go vet"
+        run: |
+          echo "Linting code..."
+          go fmt $(go list ./...)
+          go vet $(go list ./...)
+
+  golangci-lint:
+    name: "GolangCI Lint"
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Executar golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.58 # Especifique a versão do linter
+          args: --verbose
+
+  # --- Estágio: test ---
+  # Job para rodar em branches que NÃO são a 'main'
+
+  run-tests:
+    name: "Run Tests"
+    # 'needs' garante que este job rode após os jobs de lint, simulando os 'stages'
+    needs: [lint-code, golangci-lint]
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Instalar gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
+      - name: Rodar testes e gerar relatório
+        # O CGO_ENABLED=1 é padrão na maioria dos runners, mas é bom manter explícito
+        run: CGO_ENABLED=1 gotestsum --junitfile report.xml --format testname
+
+      - name: Publicar relatório de testes
+        uses: dorny/test-reporter@v1
+        if: always() # Garante que o relatório seja publicado mesmo se os testes falharem
+        with:
+          name: Test Results
+          path: report.xml
+          reporter: java-junit
+
+  # --- Estágio: release ---
+  # Job para rodar APENAS na branch 'main'
+
+  build-and-push-image:
+    name: "Build and Push Docker Image"
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Permissão para fazer push para o GitHub Packages (se necessário)
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar QEMU (para build multi-plataforma)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }} # Use secrets do GitHub
+
+      - name: Construir e enviar imagem
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_IMAGE_TAG }}
+            ${{ env.DOCKER_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # --- Estágio: deploy ---
+  # Jobs para rodar APENAS na branch 'main'
+
+  deploy-to-staging:
+    name: "Deploy to Staging (Terraform)"
+    needs: build-and-push-image # Roda após a imagem ser construída
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    # Define as saídas (outputs) do job para usar em jobs futuros
+    outputs:
+      uuid: ${{ steps.apply.outputs.uuid }}
+    env:
+      # Mapeia secrets do GitHub para variáveis de ambiente do Terraform
+      TF_VAR_docker_image_name: ${{ env.DOCKER_IMAGE_NAME }}
+      TF_VAR_docker_image_tag: ${{ env.DOCKER_IMAGE_TAG }}
+      TF_VAR_coolify_token: ${{ secrets.COOLIFY_TOKEN }}
+      TF_VAR_nome_aluno: ${{ env.NOME_ALUNO }}
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./infra # Executa o comando no diretório 'infra'
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./infra
+
+      - name: Terraform Apply
+        id: apply # ID do passo para referenciar suas saídas
+        run: |
+          terraform apply -auto-approve
+          # Salva a saída do Terraform em uma variável de output do GitHub Actions
+          echo "uuid=$(terraform output -raw uuid)" >> $GITHUB_OUTPUT
+        working-directory: ./infra
+
+  start-app:
+    name: "Start Application"
+    needs: deploy-to-staging # Roda após o deploy com Terraform
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Iniciar aplicação no Coolify
+        run: |
+          # Acessa a saída 'uuid' do job 'deploy-to-staging'
+          APP_UUID="${{ needs.deploy-to-staging.outputs.uuid }}"
+          echo "Starting application with UUID: $APP_UUID"
+          curl "https://coolify.tao.tec.br/api/v1/applications/$APP_UUID/start?force=true&instant_deploy=true" \
+            --header "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}"
