@@ -94,6 +94,7 @@ deploy-to-staging:
     TF_VAR_docker_image_tag: $DOCKER_IMAGE_TAG
     TF_VAR_coolify_token: $COOLIFY_TOKEN
   before_script:
+    - cd infra
     - terraform init
     - terraform validate
   script:
