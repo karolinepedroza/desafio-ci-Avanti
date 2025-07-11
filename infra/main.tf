@@ -8,7 +8,7 @@ resource "render_web_service" "saudacoes_aleatorias" {
     }
   }
 
-  plan          = "starter"
+  plan          = "hobby"
   region        = "oregon"
   num_instances = 1
 }
