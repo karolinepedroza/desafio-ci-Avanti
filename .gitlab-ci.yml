@@ -93,10 +93,7 @@ build-and-push-image:
     # 4. Constrói e envia a imagem para todas as plataformas de uma só vez
     # O --push é crucial: ele envia o resultado diretamente para o registry
     # O buildx cria um "manifest list" no Docker Hub que aponta para as imagens de cada arquitetura
-    - docker buildx build --platform "$PLATFORMS" \
-        --tag "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" \
-        --tag "$DOCKER_IMAGE_NAME:latest" \
-        --push .
+    - docker buildx build --platform "$PLATFORMS" --tag "$DOCKER_IMAGE_NAME:$DOCKER_IMAGE_TAG" --tag "$DOCKER_IMAGE_NAME:latest" --push .
 
   only:
     - main
