@@ -12,3 +12,8 @@ variable "environment" {
   type    = string
   default = "staging"
 }
+
+variable "coolify_token" {
+  type    = string
+  default = ""
+}
