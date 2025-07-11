@@ -72,25 +72,21 @@ build-and-push-image:
     - main
 
 # Job para acionar o deploy no Render
-deploy-to-staging:
+deploy-to-render:
   stage: deploy
-  variables:
-    TF_VAR_render_owner_id: $RENDER_OWNER_ID
-    TF_VAR_render_api_key: $RENDER_API_KEY
-    TF_VAR_docker_image_url: docker.io/$DOCKER_IMAGE_NAME
-    TF_VAR_docker_image_tag: $DOCKER_IMAGE_TAG
-    TF_VAR_service_name: $SERVICE_NAME
-  image:
-    name: hashicorp/terraform:latest
-    entrypoint:
-      - "/usr/bin/env"
-      - "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-  before_script:
-    - cd infra
-    - terraform init
-    - terraform validate
+  # Usa uma imagem mínima que já contém o curl
+  image: curlimages/curl:latest
   script:
-    - echo "Fazendo deploy no Render..."
-    - terraform apply -auto-approve
+    - echo "🚀 Acionando deploy no Render.com..."
+    # A URL do Deploy Hook do Render tem o formato:
+    # https://api.render.com/v1/services/{service_id}/deploys
+    # O service_id é composto por 'srv-' + RENDER_OWNER_ID + '-' + SERVICE_NAME + '-{hash}'
+    # Mas a API do Render permite usar a URL abaixo com o seu API Key.
+    - >
+      curl -X POST \
+      --header "Authorization: Bearer $RENDER_API_KEY" \
+      --header "Content-Type: application/json" \
+      --header "Accept: application/json" \
+      "https://api.render.com/v1/services?name=$SERVICE_NAME"
   only:
     - main
