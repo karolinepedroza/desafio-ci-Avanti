@@ -4,6 +4,7 @@ resource "render_web_service" "saudacoes_aleatorias" {
   runtime_source = {
     image = {
       image_url = var.docker_image_url
+      tag       = var.docker_image_tag
     }
   }
 
