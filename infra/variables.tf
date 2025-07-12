@@ -1,25 +1,30 @@
+variable "app_name" {
+  type    = string
+  default = "ms-saudacoes-aleatorias"
+}
+
+variable "service_name" {
+  type    = string
+  default = "saudacoes-aleatorias"
+}
+
+variable "instance_type" {
+  type    = string
+  default = "free"
+}
+
+variable "container_port" {
+  type    = number
+  default = 8080
+}
+
 variable "docker_image_name" {
   type    = string
-  default = "my-docker-image"
+  default = "taotreinatec/ms-saudacoes-aleatorias"
 }
 
 variable "docker_image_tag" {
   type    = string
   default = "latest"
 }
-
-variable "environment" {
-  type    = string
-  default = "staging"
-}
-
-variable "coolify_token" {
-  type    = string
-  default = ""
-}
-
-variable "nome_aluno" {
-  type    = string
-  default = ""
-}
-
+  

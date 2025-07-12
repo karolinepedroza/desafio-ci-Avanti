@@ -1,25 +1,52 @@
-resource "random_string" "random" {
-  length  = 8
-  special = false
+terraform {
+  required_providers {
+    koyeb = {
+      source = "koyeb/koyeb"
+    }
+  }
+}
+provider "koyeb" {
+  #
+  # Use the KOYEB_TOKEN env variable to set your Koyeb API token.
+  #
 }
 
-resource "coolify_service" "saudacoes" {
-  name        = random_string.random.result
-  description = var.nome_aluno
+resource "koyeb_app" "my-app" {
+  name = var.app_name
+}
 
-  server_uuid      = "f88kssk8kkww0wgcggocsc04"
-  project_uuid     = "bco0k0gkw4o8w4w4gwwogk8o"
-  environment_name = var.environment
-  destination_uuid = "qwgww0s04488s0k0ssoggw8s"
+resource "koyeb_service" "my-service" {
+  app_name = var.app_name
+  definition {
+    name = var.service_name
+    instance_types {
+      type = "free"
+    }
+    ports {
+      port     = var.container_port
+      protocol = "http"
+    }
+    scalings {
+      min = 0
+      max = 1
+    }
+    routes {
+      path = "/"
+      port = var.container_port
+    }
+    health_checks {
+      http {
+        port = var.container_port
+        path = "/api/saudacoes/aleatorio"
+      }
+    }
+    regions = ["was"]
+    docker {
+      image = "${var.docker_image_name}:${var.docker_image_tag}"
+    }
+  }
 
-  instant_deploy = true
-
-  compose = <<EOF
-services:
-  saudacoes-aleatorias:
-    image: "${var.docker_image_name}:${var.docker_image_tag}"
-    ports:
-      - "8080:8080"
-EOF
-
+  depends_on = [
+    koyeb_app.my-app
+  ]
 }

@@ -21,3 +21,9 @@ devbox.lock
 # vendor/
 
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Go
+
+# Terraform
+.terraform
+.terraform.lock.hcl
+.terraform.tfstate
+.terraform.tfstate.backup
