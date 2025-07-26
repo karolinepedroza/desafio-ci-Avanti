@@ -2,7 +2,7 @@
 
 Este é um simples microserviço RESTful construído em Go que fornece saudações aleatórias e permite o cadastro de novas saudações.
 
-## ✨ Funcionalidades
+## ✨ Funcionalidades 
 
   * Obter uma saudação aleatória do banco de dados.
   * Cadastrar uma nova saudação.
